@@ -4,15 +4,15 @@ library(deSolve)
 # Definindo o Tempo da Simulação:
 START<-1; FINISH<-365; STEP<-1; simtime <- seq(START, FINISH, by=STEP)
 
-skus = 10
+skus = 100
 
-z = 0.5
+z = 1.96
 
 deliveries = matrix(rep(0, skus*length(simtime)*2),nrow = length(simtime)*2, ncol = skus)
 
 # Main Decision Variable:
 
-safety_stock_perc_change = rep(0, skus)
+safety_stock_perc_change = rep(-1, skus)
 
 deliveries_per_period = rep(1/30, skus)
 
@@ -21,7 +21,7 @@ skus_cost = rep(10, skus)
 
 avg_demand = rep(50, skus)
 
-sd_demand = rep(50, skus)
+sd_demand = rep(5, skus)
 
 avg_leadtime = rep(10, skus)
 
@@ -54,7 +54,7 @@ auxs = list(reorder_level = reorder_level,
             sd_leadtime = sd_leadtime)
 
 # Definindo Estoques Iniciais:
-stocks = c(OnHandInventory = unname(reorder_level - 200) ,
+stocks = c(OnHandInventory = unname(reorder_level + 200) ,
            OnOrder = rep(0,skus),
            TotalBackOrders = rep(0,skus),
            Shipped = rep(0,skus),
@@ -72,7 +72,6 @@ modelo = modelo <- function(time, stocks, auxs){
     Shipped = stocks[grep("Shipped", x = names(stocks))]
     TotalDemand = stocks[grep("TotalDemand", x = names(stocks))]
     TotalLateSales = stocks[grep("TotalLateSales", x = names(stocks))]
-
     
     ordering = ifelse(OnHandInventory+OnOrder-TotalBackOrders<=reorder_level, qty_reorder,0)
     
@@ -84,7 +83,11 @@ modelo = modelo <- function(time, stocks, auxs){
       deliveries[time+lead_time[sku],sku] <<- deliveries[time+lead_time[sku],sku] + ordering[sku]
     }
     
-    for (sku in 1:skus) {
+    
+    
+    skus_with_deliveries = unname(which(ordering > 0)) 
+    
+    for (sku in skus_with_deliveries) {
       update_deliveries(sku = sku, deliveries, ordering, lead_time, time)
     }
     
@@ -114,5 +117,17 @@ modelo = modelo <- function(time, stocks, auxs){
 }
 
 # Resultado da Simulação
-result = deSolve::ode(y=stocks, simtime, func = modelo, 
-                        parms=auxs, method="euler")
+result = as.data.frame(deSolve::ode(y=stocks, simtime, func = modelo, 
+                        parms=auxs, method="euler"))
+
+final_data = result[nrow(result),]
+
+AverageFillRate = rowMeans(final_data[grep("fill_rate", x = names(final_data))])
+
+
+
+
+
+AverageFillRate
+
+sum(holding_inventory_cost)
